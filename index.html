@@ -47,6 +47,17 @@
   .searchbar .inwrap{position:relative}
   .searchbar input{padding-right:52px}
   .movie:active, .row:active, .fr:active{transform:scale(.97);transition:transform .08s}
+  .sbtn:active, nav button:active, .fbtn:active, .bchip:active, .epbtn:active, .allbtn:active, .save:active{transform:scale(.96);transition:transform .08s}
+  .sbtn,.fbtn,.bchip,.allbtn,.epbtn,.chip,.save,.del,nav button,.sclear{touch-action:manipulation}
+  html,body{overscroll-behavior-y:none}
+  .sheet{overscroll-behavior:contain}
+  @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+  .skel{background:linear-gradient(90deg,var(--card) 25%,var(--card2) 50%,var(--card) 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:14px;border:1px solid var(--line)}
+  .skel.cell{aspect-ratio:2/3.6}
+  .skel.bar{height:56px;margin-bottom:8px}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom));z-index:40;background:var(--card2);border:1px solid var(--line2, var(--line));color:var(--ink);padding:12px 16px;border-radius:14px;font-weight:700;font-size:13.5px;display:none;align-items:center;gap:14px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  #toast.show{display:flex}
+  #toast button{background:none;border:0;color:var(--berry);font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit}
   .sheet{transition:transform .25s cubic-bezier(.2,.8,.3,1);touch-action:pan-y}
   .nfxsteps{color:var(--mut);font-size:14px;line-height:1.8;margin-bottom:14px}
   .nfxsteps b{color:var(--ink)}
@@ -123,7 +134,7 @@
   .bailrow.show{display:flex}
   .bchip{padding:8px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
   .bchip.on{border-color:var(--bail);color:var(--bail)}
-  .sheet textarea{width:100%;background:var(--card);border:2px solid var(--line);border-radius:14px;color:var(--ink);padding:12px 14px;font-size:15px;font-family:inherit;min-height:76px;resize:vertical;outline:none}
+  .sheet textarea{width:100%;background:var(--card);border:2px solid var(--line);border-radius:14px;color:var(--ink);padding:12px 14px;font-size:16px;font-family:inherit;min-height:76px;resize:vertical;outline:none}
   .sheet textarea:focus{border-color:var(--grape)}
   .save{width:100%;margin-top:12px;padding:16px;border-radius:16px;border:0;background:var(--grape);color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit}
   .del{width:100%;margin-top:8px;padding:12px;border-radius:14px;border:0;background:none;color:#F87171;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -280,6 +291,7 @@ const db = { load(){ try { return JSON.parse(localStorage.getItem(LS)) || {}; } 
              save(d){ localStorage.setItem(LS, JSON.stringify(d)); } };
 let movies = db.load();          // key -> {key,imdb,name,year,poster,type,status,note,bail,ts,eps,epTotal}
 let current = null;
+let dirty = false;
 let filter = "ALL";
 let nfxCancel = false;
 
@@ -349,7 +361,7 @@ function renderMineMatches(q){
   const mine = mineMatches(q);
   let html = "";
   if (mine.length) html += `<div class="secttl mine">🫐 You 'member…</div>` + mine.slice(0,4).map(verdictCard).join("");
-  html += `<div class="secttl">Everywhere else</div><div class="loading">Searching…</div>`;
+  html += `<div class="secttl">Everywhere else</div><div class="grid">` + Array(6).fill('<div class="skel cell"></div>').join("") + `</div>`;
   $("#results").innerHTML = html;
   bindVerdicts();
 }
@@ -408,14 +420,17 @@ function openSheet(m, fromLog){
   document.querySelectorAll(".bchip").forEach(b => b.classList.toggle("on", b.dataset.b===current.bail));
   $("#bailrow").classList.toggle("show", current.status==="BAILED");
   $("#shDel").style.display = logged? "block":"none";
+  dirty = false;
   $("#sheetwrap").classList.add("open");
 }
 document.querySelectorAll(".sbtn").forEach(b => b.addEventListener("click", () => {
+  dirty = true;
   current.status = b.dataset.s;
   document.querySelectorAll(".sbtn").forEach(x => x.classList.toggle("on", x===b));
   $("#bailrow").classList.toggle("show", current.status==="BAILED");
 }));
 document.querySelectorAll(".bchip").forEach(b => b.addEventListener("click", () => {
+  dirty = true;
   current.bail = (current.bail===b.dataset.b)? "" : b.dataset.b;
   document.querySelectorAll(".bchip").forEach(x => x.classList.toggle("on", x.dataset.b===current.bail));
 }));
@@ -425,22 +440,38 @@ function persistCurrent(){
 }
 $("#shSave").addEventListener("click", () => {
   if (!current.status) { alert("Pick one: seen it, bailed, or wanna watch."); return; }
-  persistCurrent(); closeSheet();
+  persistCurrent(); dirty = false; closeSheet();
   const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); }
   if (current.type === "movie") maybeFranchise(current);
 });
 $("#shDel").addEventListener("click", () => {
-  delete movies[current.key]; db.save(movies); counts(); closeSheet(); renderMine();
+  const gone = movies[current.key];
+  delete movies[current.key]; db.save(movies); counts(); dirty = false; closeSheet(); renderMine();
   const q = $("#q").value.trim(); if (q) webSearch(q);
+  showToast(`Removed “${gone.name}”`, () => {
+    movies[gone.key] = gone; db.save(movies); counts(); renderMine();
+    const q2 = $("#q").value.trim(); if (q2) { renderMineMatches(q2); webSearch(q2); }
+  });
 });
 const closeSheet = () => $("#sheetwrap").classList.remove("open");
-$("#scrim").addEventListener("click", closeSheet);
+$("#shNote").addEventListener("input", () => dirty = true);
+function dismissLogSheet(){
+  // autosave on dismiss (Notes/Mail behavior) — only if the user actually changed something
+  if (current && current.status && dirty){
+    persistCurrent();
+    const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); }
+    showToast("Saved ✓");
+  }
+  dirty = false;
+  closeSheet();
+}
+$("#scrim").addEventListener("click", dismissLogSheet);
 
 /* ---------- episodes ---------- */
 $("#shEps").addEventListener("click", async () => {
   $("#sheetwrap").classList.remove("open");
   $("#epTitle").textContent = current.name;
-  $("#seasons").innerHTML = `<div class="loading">Loading episodes…</div>`;
+  $("#seasons").innerHTML = Array(4).fill('<div class="skel bar"></div>').join("");
   $("#epwrap").classList.add("open");
   let vids = [];
   try {
@@ -716,6 +747,7 @@ document.querySelectorAll(".sheetwrap").forEach(wrapEl => {
         sheet.style.transform = "";
         if (wrapEl.id === "epwrap") $("#epDone").click();
         if (wrapEl.id === "franwrap") closeFran();
+        if (wrapEl.id === "sheetwrap") dismissLogSheet();
       }, 200);
       if (wrapEl.id === "epwrap" || wrapEl.id === "franwrap") return; // handlers above manage state
     } else {
@@ -729,6 +761,19 @@ document.querySelectorAll(".sheetwrap").forEach(wrapEl => {
 $("#nfxBtn").addEventListener("click", () => $("#nfxwrap").classList.add("open"));
 $("#nfxscrim").addEventListener("click", () => $("#nfxwrap").classList.remove("open"));
 $("#nfxPick").addEventListener("click", () => { $("#nfxwrap").classList.remove("open"); $("#nfxFile").click(); });
+
+/* ---------- toast / undo snackbar ---------- */
+const toastEl = document.createElement("div");
+toastEl.id = "toast";
+document.body.appendChild(toastEl);
+let toastTimer = null;
+function showToast(text, undoFn){
+  clearTimeout(toastTimer);
+  toastEl.innerHTML = `<span>${esc(text)}</span>` + (undoFn? `<button id="toastUndo">Undo</button>`:"");
+  toastEl.classList.add("show");
+  if (undoFn) $("#toastUndo").addEventListener("click", () => { undoFn(); toastEl.classList.remove("show"); });
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), undoFn? 5000 : 1800);
+}
 
 counts();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
