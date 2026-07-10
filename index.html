@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>I 'Member Movies</title>
-<meta name="description" content="'Member if you've seen it. Track every movie — even the ones you bailed on.">
+<meta name="description" content="'Member if you've seen it. Track every movie and show — even the ones you bailed on.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
     --bg:#1A0F21; --card:#2A1835; --card2:#341E42; --line:#43285A;
     --ink:#F5EDFF; --mut:#B9A3D0; --faint:#7E6699;
     --berry:#C084FC; --grape:#A855F7;
-    --seen:#4ADE80; --bail:#FBBF24; --want:#60A5FA;
+    --seen:#4ADE80; --bail:#FBBF24; --want:#60A5FA; --watching:#2DD4BF;
     --r:20px;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -31,7 +31,6 @@
   header{padding:calc(14px + env(safe-area-inset-top)) 0 4px;display:flex;align-items:center;justify-content:space-between}
   .logo{font-size:22px;font-weight:800;letter-spacing:-.02em}
   .logo .mem{color:var(--berry)}
-  .logo .berry{display:inline-block;transform:translateY(1px)}
   .chips{display:flex;gap:6px}
   .chip{font-size:11px;font-weight:700;padding:5px 9px;border-radius:99px;background:var(--card);border:1px solid var(--line)}
   .chip b{font-size:12px}
@@ -61,6 +60,7 @@
   .pill.SEEN{background:rgba(74,222,128,.15);color:var(--seen)}
   .pill.BAILED{background:rgba(251,191,36,.15);color:var(--bail)}
   .pill.WANT{background:rgba(96,165,250,.15);color:var(--want)}
+  .pill.WATCHING{background:rgba(45,212,191,.15);color:var(--watching)}
   .verdict .note{color:var(--mut);font-size:13px;margin-top:6px;line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
@@ -73,6 +73,8 @@
   .tag.SEEN{background:rgba(74,222,128,.85);color:#06220f}
   .tag.BAILED{background:rgba(251,191,36,.9);color:#2a1c02}
   .tag.WANT{background:rgba(96,165,250,.9);color:#071a33}
+  .tag.WATCHING{background:rgba(45,212,191,.9);color:#032622}
+  .movie .tv{position:absolute;top:6px;right:6px;font-size:9px;font-weight:800;letter-spacing:.08em;padding:3px 7px;border-radius:99px;background:rgba(26,15,33,.75);color:var(--berry);border:1px solid var(--line)}
 
   .list{display:flex;flex-direction:column;gap:10px}
   .row{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px;display:flex;gap:12px;cursor:pointer}
@@ -83,8 +85,8 @@
   .row .note{color:var(--mut);font-size:13px;margin-top:5px;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .row .when{color:var(--faint);font-size:11px;margin-top:5px}
 
-  .filters{display:flex;gap:8px;margin:12px 0}
-  .fbtn{flex:1;padding:9px 0;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-weight:800;font-size:13px;cursor:pointer}
+  .filters{display:flex;gap:6px;margin:12px 0;flex-wrap:wrap}
+  .fbtn{flex:1;min-width:60px;padding:9px 0;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit}
   .fbtn.on{border-color:var(--grape);color:var(--ink);background:var(--card2)}
 
   nav{position:fixed;bottom:0;left:0;right:0;z-index:10;background:rgba(26,15,33,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
@@ -109,6 +111,7 @@
   .sbtn.SEEN.on{border-color:var(--seen);background:rgba(74,222,128,.12)}
   .sbtn.BAILED.on{border-color:var(--bail);background:rgba(251,191,36,.12)}
   .sbtn.WANT.on{border-color:var(--want);background:rgba(96,165,250,.12)}
+  .epbtn{width:100%;padding:13px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:var(--watching);font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:12px}
   .bailrow{display:none;gap:6px;margin-bottom:12px;flex-wrap:wrap}
   .bailrow.show{display:flex}
   .bchip{padding:8px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
@@ -118,15 +121,49 @@
   .save{width:100%;margin-top:12px;padding:16px;border-radius:16px;border:0;background:var(--grape);color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit}
   .del{width:100%;margin-top:8px;padding:12px;border-radius:14px;border:0;background:none;color:#F87171;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 
-  .tools{display:flex;gap:10px;justify-content:center;margin:22px 0 8px}
+  /* episodes */
+  .season{border:1px solid var(--line);border-radius:14px;margin-bottom:8px;overflow:hidden}
+  .season .shd{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);cursor:pointer}
+  .season .shd b{flex:1;font-size:14px}
+  .season .shd .prog{color:var(--faint);font-size:12px;font-weight:700}
+  .season .shd .allbtn{border:1px solid var(--line);background:none;color:var(--mut);font-weight:700;font-size:11px;padding:5px 10px;border-radius:99px;cursor:pointer;font-family:inherit}
+  .season .eps{display:none;padding:4px 6px 8px}
+  .season.open .eps{display:block}
+  .ep{display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:10px;cursor:pointer}
+  .ep:active{background:var(--card)}
+  .ep .box{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);display:grid;place-items:center;font-size:13px;flex:none}
+  .ep.done .box{border-color:var(--seen);background:rgba(74,222,128,.15)}
+  .ep .et{font-size:13px;color:var(--mut);line-height:1.3}
+  .ep.done .et{color:var(--ink)}
+  .ep .en{color:var(--faint);font-weight:700;font-size:11.5px;margin-right:2px}
+  .leftoff{background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.35);color:var(--watching);font-size:13px;font-weight:700;border-radius:12px;padding:10px 14px;margin-bottom:12px}
+
+  /* franchise rows */
+  .fr{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px}
+  .fr img{width:44px;height:66px;object-fit:cover;border-radius:8px;background:var(--card2)}
+  .fr .t{flex:1;min-width:0}
+  .fr .n{font-weight:700;font-size:13.5px;line-height:1.25}
+  .fr .y{color:var(--faint);font-size:11.5px;font-weight:600}
+  .fr .acts{display:flex;gap:6px}
+  .fr .acts button{border:1px solid var(--line);background:var(--card2);border-radius:10px;font-size:16px;width:38px;height:38px;cursor:pointer}
+  .fr .acts .skip{font-size:11px;width:auto;padding:0 10px;color:var(--faint);font-weight:700;font-family:inherit}
+  .fr.logged .acts{display:none}
+  .fr .loggedpill{display:none}
+  .fr.logged .loggedpill{display:inline-block}
+
+  .tools{display:flex;gap:14px;justify-content:center;margin:22px 0 8px;flex-wrap:wrap}
   .tools button{background:none;border:0;color:var(--faint);font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline;font-family:inherit}
   .loading{text-align:center;color:var(--faint);padding:16px;font-weight:700;font-size:13px}
+  .nfxstat{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:13px;color:var(--mut);margin:10px 0;display:none}
+  .nfxstat.show{display:block}
+  .nfxstat b{color:var(--ink)}
+  .nfxstat .cancel{margin-left:10px;color:#F87171;text-decoration:underline;cursor:pointer;font-weight:700}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="logo"><span class="berry">🫐</span> I <span class="mem">'MEMBER</span> MOVIES</div>
+    <div class="logo"><span>🫐</span> I <span class="mem">'MEMBER</span> MOVIES</div>
     <div class="chips">
       <div class="chip s"><b id="cSeen">0</b> seen</div>
       <div class="chip b"><b id="cBail">0</b> bailed</div>
@@ -137,7 +174,7 @@
   <div id="viewHome">
     <div class="searchbar"><input id="q" type="search" placeholder="'Member if I've seen…" autocomplete="off"></div>
     <div id="results">
-      <div class="hint"><span class="bigberry">🫐</span><b>Type a movie title.</b><br>Your own log answers first — instantly — then the whole world's movies. Log what you've seen, what you bailed on, and what's on the list.</div>
+      <div class="hint"><span class="bigberry">🫐</span><b>Type a movie or show.</b><br>Your own log answers first — instantly — then the whole world's catalog. Movies AND TV, down to the episode.</div>
     </div>
   </div>
 
@@ -145,14 +182,18 @@
     <div class="filters">
       <button class="fbtn on" data-f="ALL">All</button>
       <button class="fbtn" data-f="SEEN">Seen</button>
+      <button class="fbtn" data-f="WATCHING">Watching</button>
       <button class="fbtn" data-f="BAILED">Bailed</button>
       <button class="fbtn" data-f="WANT">List</button>
     </div>
+    <div class="nfxstat" id="nfxstat"></div>
     <div id="mine" class="list"></div>
     <div class="tools">
-      <button id="exportBtn">Export my movies</button>
-      <button id="importBtn">Import</button>
+      <button id="nfxBtn">Import Netflix history</button>
+      <button id="exportBtn">Export</button>
+      <button id="importBtn">Import backup</button>
       <input id="importFile" type="file" accept="application/json" style="display:none">
+      <input id="nfxFile" type="file" accept=".csv,text/csv" style="display:none">
     </div>
   </div>
 </div>
@@ -162,6 +203,29 @@
   <button id="tabMine"><span class="ico">🎬</span>My Movies</button>
 </div></nav>
 
+<div class="sheetwrap" id="franwrap">
+  <div class="scrim" id="franscrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div style="font-size:19px;font-weight:800;margin-bottom:4px">🫐 'Member the rest?</div>
+    <div style="color:var(--mut);font-size:13px;margin-bottom:14px">Looks like a franchise. Rapid-log the others:</div>
+    <div class="list" id="franlist"></div>
+    <button class="save" id="franDone">Done 'membering</button>
+  </div>
+</div>
+
+<div class="sheetwrap" id="epwrap">
+  <div class="scrim" id="epscrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div style="font-size:19px;font-weight:800;margin-bottom:2px" id="epTitle"></div>
+    <div style="color:var(--mut);font-size:13px;margin-bottom:12px">Tap the episodes you've seen.</div>
+    <div class="leftoff" id="leftoff" style="display:none"></div>
+    <div id="seasons"></div>
+    <button class="save" id="epDone">Done</button>
+  </div>
+</div>
+
 <div class="sheetwrap" id="sheetwrap">
   <div class="scrim" id="scrim"></div>
   <div class="sheet">
@@ -170,6 +234,7 @@
       <img id="shPoster" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='120'%3E%3Crect width='80' height='120' fill='%23341E42'/%3E%3C/svg%3E">
       <div><div class="name" id="shName"></div><div class="yr" id="shYr"></div><div class="cur" id="shCur"></div></div>
     </div>
+    <button class="epbtn" id="shEps" style="display:none">📺 Track episodes — season by season</button>
     <div class="btns">
       <button class="sbtn SEEN" data-s="SEEN"><span class="e">✅</span>Seen it</button>
       <button class="sbtn BAILED" data-s="BAILED"><span class="e">🏃</span>Bailed</button>
@@ -192,13 +257,26 @@ const LS = "imember.movies.v1";
 const $ = s => document.querySelector(s);
 const db = { load(){ try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch(e){ return {}; } },
              save(d){ localStorage.setItem(LS, JSON.stringify(d)); } };
-let movies = db.load();          // key -> {key,name,year,poster,status,note,bail,ts}
-let current = null;              // movie in the sheet
+let movies = db.load();          // key -> {key,imdb,name,year,poster,type,status,note,bail,ts,eps,epTotal}
+let current = null;
 let filter = "ALL";
+let nfxCancel = false;
 
 const keyOf = m => m.imdb || (m.name + "|" + (m.year||""));
 const esc = s => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm = s => (s||"").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="120"><rect width="80" height="120" fill="#341E42"/><text x="40" y="66" font-size="30" text-anchor="middle">🫐</text></svg>');
+
+const CM = "https://v3-cinemeta.strem.io";
+const searchCatalog = async (type, q) => {
+  try {
+    const r = await fetch(`${CM}/catalog/${type}/top/search=${encodeURIComponent(q)}.json`);
+    return ((await r.json()).metas || []).map(m => ({
+      imdb: m.imdb_id || "", name: m.name, year: (m.releaseInfo||"").slice(0,4),
+      yearFull: m.releaseInfo || "", poster: m.poster || "", type,
+    }));
+  } catch(e){ return []; }
+};
 
 function counts(){
   const v = Object.values(movies);
@@ -207,87 +285,104 @@ function counts(){
   $("#cWant").textContent = v.filter(m=>m.status==="WANT").length;
 }
 
+function progressOf(m){
+  if (m.type !== "series" || !m.eps) return null;
+  const done = Object.keys(m.eps).filter(k => m.eps[k]);
+  if (!done.length) return null;
+  const last = done.map(k => k.split(":").map(Number)).sort((a,b) => a[0]-b[0] || a[1]-b[1]).pop();
+  return { count: done.length, last: `S${last[0]}E${last[1]}` };
+}
+function pillOf(m){
+  const p = progressOf(m);
+  if (m.status === "WATCHING" && p) return {cls:"WATCHING", label:`WATCHING — up to ${p.last}`};
+  if (m.status === "SEEN") return {cls:"SEEN", label: m.type==="series" ? "SEEN IT ALL" : "YOU'VE SEEN THIS"};
+  if (m.status === "BAILED") return {cls:"BAILED", label:"YOU BAILED" + (m.bail? " — " + m.bail:"")};
+  if (m.status === "WANT") return {cls:"WANT", label:"ON YOUR LIST"};
+  return {cls:m.status||"", label:m.status||""};
+}
+
 /* ---------- search ---------- */
 let t = null, seq = 0;
 $("#q").addEventListener("input", e => {
   clearTimeout(t);
   const q = e.target.value.trim();
   if (!q) { $("#results").innerHTML = ""; return; }
-  renderMineMatches(q);                     // instant, local
-  t = setTimeout(() => webSearch(q), 380);  // debounced, network
+  renderMineMatches(q);
+  t = setTimeout(() => webSearch(q), 380);
 });
 
-function mineMatches(q){
-  const n = q.toLowerCase();
-  return Object.values(movies).filter(m => m.name.toLowerCase().includes(n))
-    .sort((a,b) => b.ts - a.ts);
-}
+const mineMatches = q => Object.values(movies)
+  .filter(m => m.name.toLowerCase().includes(q.toLowerCase()))
+  .sort((a,b) => b.ts - a.ts);
 
 function verdictCard(m){
-  const label = {SEEN:"YOU'VE SEEN THIS", BAILED:"YOU BAILED" + (m.bail? " — " + esc(m.bail):""), WANT:"ON YOUR LIST"}[m.status];
+  const p = pillOf(m);
   return `<div class="verdict" data-k="${esc(m.key)}">
     <img src="${m.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
-    <div class="t"><div class="name">${esc(m.name)}</div><div class="yr">${esc(m.year||"")}</div>
-    <span class="pill ${m.status}">${label}</span>
+    <div class="t"><div class="name">${esc(m.name)}</div><div class="yr">${esc(m.year||"")}${m.type==="series"?" · TV":""}</div>
+    <span class="pill ${p.cls}">${esc(p.label)}</span>
     ${m.note? `<div class="note">“${esc(m.note)}”</div>`:""}</div></div>`;
 }
 
 function renderMineMatches(q){
   const mine = mineMatches(q);
   let html = "";
-  if (mine.length){
-    html += `<div class="secttl mine">🫐 You 'member…</div>` + mine.slice(0,4).map(verdictCard).join("");
-  }
+  if (mine.length) html += `<div class="secttl mine">🫐 You 'member…</div>` + mine.slice(0,4).map(verdictCard).join("");
   html += `<div class="secttl">Everywhere else</div><div class="loading">Searching…</div>`;
   $("#results").innerHTML = html;
   bindVerdicts();
 }
 
+function movieCell(m){
+  const k = keyOf(m);
+  const logged = movies[k];
+  const tag = logged ? `<span class="tag ${logged.status}">${logged.status==="WANT"?"LIST":logged.status}</span>` : "";
+  return `<div class="movie" data-m='${esc(JSON.stringify(m))}'>${tag}
+    ${m.type==="series" ? `<span class="tv">TV</span>`:""}
+    <img loading="lazy" src="${m.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
+    <div class="cap"><div class="n">${esc(m.name)}</div><div class="y">${esc(m.type==="series" ? (m.yearFull||m.year) : m.year)}</div></div></div>`;
+}
+
 async function webSearch(q){
   const my = ++seq;
-  let metas = [];
-  try {
-    const r = await fetch("https://v3-cinemeta.strem.io/catalog/movie/top/search=" + encodeURIComponent(q) + ".json");
-    metas = (await r.json()).metas || [];
-  } catch(e){ /* offline: local results already shown */ }
+  const [mov, ser] = await Promise.all([searchCatalog("movie", q), searchCatalog("series", q)]);
   if (my !== seq) return;
+  // interleave: movies first, series woven in
+  const merged = [];
+  const L = Math.max(mov.length, ser.length);
+  for (let i = 0; i < L; i++) { if (mov[i]) merged.push(mov[i]); if (ser[i]) merged.push(ser[i]); }
   const mine = mineMatches(q);
   let html = "";
   if (mine.length) html += `<div class="secttl mine">🫐 You 'member…</div>` + mine.slice(0,4).map(verdictCard).join("");
-  if (metas.length){
-    html += `<div class="secttl">Everywhere else</div><div class="grid">` + metas.slice(0,18).map(m => {
-      const k = keyOf({imdb:m.imdb_id, name:m.name, year:m.releaseInfo});
-      const logged = movies[k];
-      return `<div class="movie" data-m='${esc(JSON.stringify({imdb:m.imdb_id||"",name:m.name,year:(m.releaseInfo||"").slice(0,4),poster:m.poster||""}))}'>
-        ${logged? `<span class="tag ${logged.status}">${logged.status==="WANT"?"LIST":logged.status}</span>`:""}
-        <img loading="lazy" src="${m.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
-        <div class="cap"><div class="n">${esc(m.name)}</div><div class="y">${esc((m.releaseInfo||"").slice(0,4))}</div></div></div>`;
-    }).join("") + `</div>`;
+  if (merged.length){
+    html += `<div class="secttl">Everywhere else</div><div class="grid">` + merged.slice(0,21).map(movieCell).join("") + `</div>`;
   } else if (!mine.length){
     html += `<div class="hint">Nothing found for “${esc(q)}”. Try fewer words.</div>`;
   }
   $("#results").innerHTML = html;
   bindVerdicts();
-  document.querySelectorAll(".movie").forEach(el =>
-    el.addEventListener("click", () => openSheet(JSON.parse(el.dataset.m))));
+  bindCells();
 }
+const bindCells = () => document.querySelectorAll(".movie").forEach(el =>
+  el.addEventListener("click", () => openSheet(JSON.parse(el.dataset.m))));
+const bindVerdicts = () => document.querySelectorAll(".verdict").forEach(el =>
+  el.addEventListener("click", () => { const m = movies[el.dataset.k]; if (m) openSheet(m, true); }));
 
-function bindVerdicts(){
-  document.querySelectorAll(".verdict").forEach(el =>
-    el.addEventListener("click", () => { const m = movies[el.dataset.k]; if (m) openSheet(m, true); }));
-}
-
-/* ---------- sheet ---------- */
+/* ---------- log sheet ---------- */
 function openSheet(m, fromLog){
   const k = fromLog ? m.key : keyOf(m);
   const logged = movies[k];
   current = { key:k, imdb:m.imdb||"", name:m.name, year:m.year||"", poster:m.poster||"",
-              status:(logged&&logged.status)||null, note:(logged&&logged.note)||"", bail:(logged&&logged.bail)||"" };
+              type:(logged&&logged.type)||m.type||"movie",
+              status:(logged&&logged.status)||null, note:(logged&&logged.note)||"",
+              bail:(logged&&logged.bail)||"", eps:(logged&&logged.eps)||{}, epTotal:(logged&&logged.epTotal)||0 };
   $("#shPoster").src = current.poster || PLACEHOLDER;
   $("#shName").textContent = current.name;
-  $("#shYr").textContent = current.year;
-  $("#shCur").innerHTML = logged? `<span class="pill ${logged.status}">already logged</span>` : "";
+  $("#shYr").textContent = current.year + (current.type==="series" ? " · TV series" : "");
+  const p = logged && pillOf(logged);
+  $("#shCur").innerHTML = logged? `<span class="pill ${p.cls}">${esc(p.label)}</span>` : "";
   $("#shNote").value = current.note;
+  $("#shEps").style.display = (current.type==="series" && current.imdb) ? "block" : "none";
   document.querySelectorAll(".sbtn").forEach(b => b.classList.toggle("on", b.dataset.s===current.status));
   document.querySelectorAll(".bchip").forEach(b => b.classList.toggle("on", b.dataset.b===current.bail));
   $("#bailrow").classList.toggle("show", current.status==="BAILED");
@@ -303,12 +398,15 @@ document.querySelectorAll(".bchip").forEach(b => b.addEventListener("click", () 
   current.bail = (current.bail===b.dataset.b)? "" : b.dataset.b;
   document.querySelectorAll(".bchip").forEach(x => x.classList.toggle("on", x.dataset.b===current.bail));
 }));
+function persistCurrent(){
+  movies[current.key] = { ...current, note: $("#shNote").value.trim(), ts: Date.now() };
+  db.save(movies); counts(); renderMine();
+}
 $("#shSave").addEventListener("click", () => {
   if (!current.status) { alert("Pick one: seen it, bailed, or wanna watch."); return; }
-  movies[current.key] = { ...current, note: $("#shNote").value.trim(), ts: Date.now() };
-  db.save(movies); counts(); closeSheet();
+  persistCurrent(); closeSheet();
   const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); }
-  renderMine();
+  if (current.type === "movie") maybeFranchise(current);
 });
 $("#shDel").addEventListener("click", () => {
   delete movies[current.key]; db.save(movies); counts(); closeSheet(); renderMine();
@@ -317,19 +415,151 @@ $("#shDel").addEventListener("click", () => {
 const closeSheet = () => $("#sheetwrap").classList.remove("open");
 $("#scrim").addEventListener("click", closeSheet);
 
+/* ---------- episodes ---------- */
+$("#shEps").addEventListener("click", async () => {
+  $("#sheetwrap").classList.remove("open");
+  $("#epTitle").textContent = current.name;
+  $("#seasons").innerHTML = `<div class="loading">Loading episodes…</div>`;
+  $("#epwrap").classList.add("open");
+  let vids = [];
+  try {
+    const r = await fetch(`${CM}/meta/series/${current.imdb}.json`);
+    vids = ((await r.json()).meta || {}).videos || [];
+  } catch(e){}
+  vids = vids.filter(v => v.season > 0 && v.episode > 0);
+  current.epTotal = vids.length;
+  if (!vids.length){ $("#seasons").innerHTML = `<div class="hint">No episode list available for this one.</div>`; return; }
+  const bySeason = {};
+  vids.forEach(v => (bySeason[v.season] = bySeason[v.season] || []).push(v));
+  renderSeasons(bySeason);
+});
+function renderSeasons(bySeason){
+  const seasons = Object.keys(bySeason).map(Number).sort((a,b)=>a-b);
+  $("#seasons").innerHTML = seasons.map(s => {
+    const eps = bySeason[s].sort((a,b)=>a.episode-b.episode);
+    const done = eps.filter(v => current.eps[`${s}:${v.episode}`]).length;
+    return `<div class="season" data-s="${s}">
+      <div class="shd"><b>Season ${s}</b><span class="prog">${done}/${eps.length}</span>
+        <button class="allbtn" data-s="${s}">${done===eps.length? "unmark all":"mark all"}</button></div>
+      <div class="eps">${eps.map(v => {
+        const on = !!current.eps[`${s}:${v.episode}`];
+        return `<div class="ep ${on?"done":""}" data-se="${s}:${v.episode}">
+          <div class="box">${on?"✓":""}</div>
+          <div class="et"><span class="en">E${v.episode}</span>${esc(v.name||"")}</div></div>`;
+      }).join("")}</div></div>`;
+  }).join("");
+  updateLeftoff();
+  document.querySelectorAll(".season .shd").forEach(el => el.addEventListener("click", e => {
+    if (e.target.classList.contains("allbtn")) return;
+    el.parentElement.classList.toggle("open");
+  }));
+  document.querySelectorAll(".ep").forEach(el => el.addEventListener("click", () => {
+    const se = el.dataset.se;
+    current.eps[se] = !current.eps[se];
+    if (!current.eps[se]) delete current.eps[se];
+    el.classList.toggle("done");
+    el.querySelector(".box").textContent = current.eps[se] ? "✓" : "";
+    syncSeriesStatus(); refreshSeasonHeaders(bySeason);
+  }));
+  document.querySelectorAll(".allbtn").forEach(btn => btn.addEventListener("click", () => {
+    const s = Number(btn.dataset.s);
+    const eps = bySeason[s];
+    const allDone = eps.every(v => current.eps[`${s}:${v.episode}`]);
+    eps.forEach(v => { if (allDone) delete current.eps[`${s}:${v.episode}`]; else current.eps[`${s}:${v.episode}`] = true; });
+    syncSeriesStatus(); renderSeasons(bySeason);
+    document.querySelector(`.season[data-s="${s}"]`).classList.add("open");
+  }));
+}
+function refreshSeasonHeaders(bySeason){
+  Object.keys(bySeason).forEach(s => {
+    const eps = bySeason[s];
+    const done = eps.filter(v => current.eps[`${s}:${v.episode}`]).length;
+    const el = document.querySelector(`.season[data-s="${s}"]`);
+    el.querySelector(".prog").textContent = `${done}/${eps.length}`;
+    el.querySelector(".allbtn").textContent = done===eps.length ? "unmark all" : "mark all";
+  });
+  updateLeftoff();
+}
+function updateLeftoff(){
+  const p = progressOf({...current, type:"series"});
+  const lo = $("#leftoff");
+  if (p){ lo.style.display = "block"; lo.textContent = `📍 You left off at ${p.last} — ${p.count}${current.epTotal? " of " + current.epTotal : ""} episodes watched`; }
+  else lo.style.display = "none";
+}
+function syncSeriesStatus(){
+  const done = Object.keys(current.eps).length;
+  if (done === 0 && current.status === "WATCHING") current.status = null;
+  else if (current.epTotal && done >= current.epTotal) current.status = "SEEN";
+  else if (done > 0 && current.status !== "SEEN") current.status = "WATCHING";
+}
+$("#epDone").addEventListener("click", () => {
+  syncSeriesStatus();
+  if (!current.status) current.status = "WATCHING";
+  persistCurrent();
+  $("#epwrap").classList.remove("open");
+  const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); }
+});
+$("#epscrim").addEventListener("click", () => $("#epDone").click());
+
+/* ---------- franchise rapid-log ---------- */
+function stemOf(name){
+  let s = name.split(":")[0].trim();
+  s = s.replace(/\s+(?:\d{1,2}|II|III|IV|V|VI|VII|VIII|IX|X)$/i, "").trim();
+  return s;
+}
+async function maybeFranchise(m){
+  const stem = stemOf(m.name);
+  if (stem.length < 3) return;
+  const results = await searchCatalog("movie", stem);
+  const sibs = results.filter(r =>
+    norm(r.name).startsWith(norm(stem)) && keyOf(r) !== m.key && !movies[keyOf(r)]).slice(0, 8);
+  if (!sibs.length) return;
+  $("#franlist").innerHTML = sibs.map(r => `
+    <div class="fr" data-m='${esc(JSON.stringify(r))}'>
+      <img src="${r.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
+      <div class="t"><div class="n">${esc(r.name)}</div><div class="y">${esc(r.year)}</div>
+        <span class="pill SEEN loggedpill">logged ✓</span></div>
+      <div class="acts">
+        <button class="s" title="Seen it">✅</button>
+        <button class="b" title="Bailed">🏃</button>
+        <button class="skip">skip</button>
+      </div>
+    </div>`).join("");
+  $("#franwrap").classList.add("open");
+  document.querySelectorAll("#franlist .fr").forEach(el => {
+    const r = JSON.parse(el.dataset.m);
+    const logIt = status => {
+      movies[keyOf(r)] = { key:keyOf(r), imdb:r.imdb, name:r.name, year:r.year, poster:r.poster,
+                           type:"movie", status, note:"", bail:"", ts:Date.now() };
+      db.save(movies); counts(); renderMine();
+      el.classList.add("logged");
+      el.querySelector(".loggedpill").textContent = status==="SEEN" ? "seen ✓" : "bailed ✓";
+      el.querySelector(".loggedpill").className = `pill ${status} loggedpill`;
+    };
+    el.querySelector(".s").addEventListener("click", () => logIt("SEEN"));
+    el.querySelector(".b").addEventListener("click", () => logIt("BAILED"));
+    el.querySelector(".skip").addEventListener("click", () => el.remove());
+  });
+}
+const closeFran = () => { $("#franwrap").classList.remove("open");
+  const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); } };
+$("#franDone").addEventListener("click", closeFran);
+$("#franscrim").addEventListener("click", closeFran);
+
 /* ---------- my movies ---------- */
 function renderMine(){
   const v = Object.values(movies).filter(m => filter==="ALL" || m.status===filter).sort((a,b)=>b.ts-a.ts);
-  $("#mine").innerHTML = v.length? v.map(m => `
-    <div class="row" data-k="${esc(m.key)}">
+  $("#mine").innerHTML = v.length? v.map(m => {
+    const p = pillOf(m);
+    return `<div class="row" data-k="${esc(m.key)}">
       <img src="${m.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
       <div class="t">
-        <div class="name">${esc(m.name)} <span class="yr">${esc(m.year||"")}</span></div>
-        <span class="pill ${m.status}">${m.status==="BAILED"&&m.bail? "BAILED — "+esc(m.bail) : (m.status==="WANT"?"ON THE LIST":m.status)}</span>
+        <div class="name">${esc(m.name)} <span class="yr">${esc(m.year||"")}${m.type==="series"?" · TV":""}</span></div>
+        <span class="pill ${p.cls}">${esc(p.label)}</span>
         ${m.note? `<div class="note">“${esc(m.note)}”</div>`:""}
         <div class="when">${new Date(m.ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
       </div>
-    </div>`).join("")
+    </div>`;}).join("")
     : `<div class="hint"><span class="bigberry">🎬</span>Nothing here yet. Go 'member some movies.</div>`;
   document.querySelectorAll("#mine .row").forEach(el =>
     el.addEventListener("click", () => openSheet(movies[el.dataset.k], true)));
@@ -365,6 +595,75 @@ $("#importFile").addEventListener("change", async e => {
     alert("Imported. You 'member everything again.");
   } catch(err){ alert("That file didn't look right."); }
 });
+
+/* ---------- Netflix history import ---------- */
+$("#nfxBtn").addEventListener("click", () => $("#nfxFile").click());
+$("#nfxFile").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const rows = parseCSV(text);
+  if (!rows.length || !("Title" in rows[0])) { alert("That doesn't look like a Netflix viewing-history file (needs a Title column)."); return; }
+
+  // classify: "Show: Season X: Episode" => series (first segment), plain => movie
+  const seriesNames = new Set(), movieNames = new Set();
+  rows.forEach(r => {
+    const t = r.Title || "";
+    const parts = t.split(":").map(x => x.trim()).filter(Boolean);
+    if (parts.length >= 3) seriesNames.add(parts[0]);
+    else if (parts.length) movieNames.add(t.trim());
+  });
+  const jobs = [...movieNames].map(n => ({n, type:"movie"}))
+    .concat([...seriesNames].map(n => ({n, type:"series"})));
+
+  const stat = $("#nfxstat");
+  stat.classList.add("show");
+  nfxCancel = false;
+  let matched = 0, skipped = 0;
+  const unmatched = [];
+  for (let i = 0; i < jobs.length; i++){
+    if (nfxCancel) break;
+    const {n, type} = jobs[i];
+    stat.innerHTML = `Netflix import: <b>${i+1}/${jobs.length}</b> — ${esc(n)} <span class="cancel" onclick="nfxCancel=true">cancel</span>`;
+    const already = Object.values(movies).some(m => norm(m.name) === norm(n));
+    if (already) { matched++; continue; }
+    const res = await searchCatalog(type, n);
+    const hit = res.find(r => norm(r.name) === norm(n)) || (res[0] && norm(res[0].name).startsWith(norm(n)) ? res[0] : null);
+    if (hit){
+      const k = keyOf(hit);
+      if (!movies[k]) movies[k] = { key:k, imdb:hit.imdb, name:hit.name, year:hit.year, poster:hit.poster,
+        type, status:"SEEN", note:"from my Netflix history", bail:"", ts:Date.now() };
+      matched++;
+    } else { skipped++; unmatched.push(n); }
+    if (i % 10 === 9) db.save(movies);
+    await new Promise(r => setTimeout(r, 160));
+  }
+  db.save(movies); counts(); renderMine();
+  localStorage.setItem("imember.nfx.unmatched", JSON.stringify(unmatched));
+  stat.innerHTML = `Netflix import ${nfxCancel? "stopped":"done"}: <b>${matched} matched</b>, ${skipped} not found${unmatched.length? " (saved a list of those)":""}.`;
+  e.target.value = "";
+});
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return [];
+  const parseLine = l => {
+    const out = []; let cur = "", inQ = false;
+    for (let i = 0; i < l.length; i++){
+      const c = l[i];
+      if (inQ){ if (c === '"' && l[i+1] === '"'){ cur += '"'; i++; } else if (c === '"') inQ = false; else cur += c; }
+      else if (c === '"') inQ = true;
+      else if (c === ',') { out.push(cur); cur = ""; }
+      else cur += c;
+    }
+    out.push(cur); return out;
+  };
+  const head = parseLine(lines[0]);
+  return lines.slice(1).map(l => {
+    const cells = parseLine(l);
+    const o = {}; head.forEach((h, i) => o[h.trim()] = (cells[i]||"").trim());
+    return o;
+  });
+}
 
 counts();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
