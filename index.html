@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>I 'Member Movies</title>
+<meta name="description" content="'Member if you've seen it. Track every movie — even the ones you bailed on.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1A0F21">
+<style>
+  :root{
+    --bg:#1A0F21; --card:#2A1835; --card2:#341E42; --line:#43285A;
+    --ink:#F5EDFF; --mut:#B9A3D0; --faint:#7E6699;
+    --berry:#C084FC; --grape:#A855F7;
+    --seen:#4ADE80; --bail:#FBBF24; --want:#60A5FA;
+    --r:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{background:var(--bg)}
+  body{
+    background:radial-gradient(120% 50% at 50% -10%, rgba(168,85,247,.16), transparent 60%), var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,"SF Pro Rounded",BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom));
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:0 16px}
+
+  header{padding:calc(14px + env(safe-area-inset-top)) 0 4px;display:flex;align-items:center;justify-content:space-between}
+  .logo{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .logo .mem{color:var(--berry)}
+  .logo .berry{display:inline-block;transform:translateY(1px)}
+  .chips{display:flex;gap:6px}
+  .chip{font-size:11px;font-weight:700;padding:5px 9px;border-radius:99px;background:var(--card);border:1px solid var(--line)}
+  .chip b{font-size:12px}
+  .chip.s b{color:var(--seen)} .chip.b b{color:var(--bail)} .chip.w b{color:var(--want)}
+
+  .searchbar{position:sticky;top:0;z-index:5;padding:10px 0 12px;background:linear-gradient(var(--bg) 75%, transparent)}
+  .searchbar input{
+    width:100%;background:var(--card);border:2px solid var(--line);color:var(--ink);
+    padding:15px 18px;border-radius:16px;font-size:17px;font-weight:600;outline:none;
+  }
+  .searchbar input:focus{border-color:var(--grape)}
+  .searchbar input::placeholder{color:var(--faint);font-weight:500}
+
+  .hint{color:var(--faint);font-size:13px;text-align:center;padding:28px 20px;line-height:1.6}
+  .hint b{color:var(--mut)}
+  .bigberry{font-size:44px;display:block;margin-bottom:10px}
+
+  .secttl{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:14px 2px 8px}
+  .secttl.mine{color:var(--berry)}
+
+  .verdict{background:var(--card2);border:2px solid var(--grape);border-radius:var(--r);padding:14px;display:flex;gap:12px;align-items:center;margin-bottom:10px}
+  .verdict img{width:52px;height:78px;object-fit:cover;border-radius:10px;background:var(--card)}
+  .verdict .t{flex:1;min-width:0}
+  .verdict .name{font-weight:800;font-size:16px}
+  .verdict .yr{color:var(--faint);font-weight:600;font-size:13px}
+  .pill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;padding:4px 10px;border-radius:99px;margin-top:5px}
+  .pill.SEEN{background:rgba(74,222,128,.15);color:var(--seen)}
+  .pill.BAILED{background:rgba(251,191,36,.15);color:var(--bail)}
+  .pill.WANT{background:rgba(96,165,250,.15);color:var(--want)}
+  .verdict .note{color:var(--mut);font-size:13px;margin-top:6px;line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .movie{background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--line);cursor:pointer;position:relative}
+  .movie img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:var(--card2)}
+  .movie .cap{padding:7px 8px 9px}
+  .movie .n{font-size:12px;font-weight:700;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .movie .y{font-size:11px;color:var(--faint);font-weight:600;margin-top:2px}
+  .movie .tag{position:absolute;top:6px;left:6px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;backdrop-filter:blur(6px)}
+  .tag.SEEN{background:rgba(74,222,128,.85);color:#06220f}
+  .tag.BAILED{background:rgba(251,191,36,.9);color:#2a1c02}
+  .tag.WANT{background:rgba(96,165,250,.9);color:#071a33}
+
+  .list{display:flex;flex-direction:column;gap:10px}
+  .row{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px;display:flex;gap:12px;cursor:pointer}
+  .row img{width:56px;height:84px;object-fit:cover;border-radius:10px;background:var(--card2)}
+  .row .t{flex:1;min-width:0}
+  .row .name{font-weight:800;font-size:15px;line-height:1.25}
+  .row .yr{color:var(--faint);font-size:12px;font-weight:600}
+  .row .note{color:var(--mut);font-size:13px;margin-top:5px;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .row .when{color:var(--faint);font-size:11px;margin-top:5px}
+
+  .filters{display:flex;gap:8px;margin:12px 0}
+  .fbtn{flex:1;padding:9px 0;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-weight:800;font-size:13px;cursor:pointer}
+  .fbtn.on{border-color:var(--grape);color:var(--ink);background:var(--card2)}
+
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:10;background:rgba(26,15,33,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+  nav .in{max-width:560px;margin:0 auto;display:flex;padding:8px 16px calc(8px + env(safe-area-inset-bottom))}
+  nav button{flex:1;background:none;border:0;color:var(--faint);font-weight:800;font-size:12px;padding:8px 0;cursor:pointer;font-family:inherit}
+  nav button .ico{display:block;font-size:22px;margin-bottom:2px}
+  nav button.on{color:var(--berry)}
+
+  .sheetwrap{position:fixed;inset:0;z-index:20;display:none}
+  .sheetwrap.open{display:block}
+  .scrim{position:absolute;inset:0;background:rgba(0,0,0,.6)}
+  .sheet{position:absolute;bottom:0;left:0;right:0;background:var(--card2);border-radius:24px 24px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;max-height:86vh;overflow-y:auto}
+  .sheet .grab{width:44px;height:5px;border-radius:99px;background:var(--line);margin:0 auto 14px}
+  .shead{display:flex;gap:14px;margin-bottom:16px}
+  .shead img{width:84px;height:126px;object-fit:cover;border-radius:12px;background:var(--card)}
+  .shead .name{font-size:20px;font-weight:800;line-height:1.2}
+  .shead .yr{color:var(--faint);font-weight:700;margin-top:3px}
+  .shead .cur{margin-top:8px}
+  .btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+  .sbtn{padding:14px 4px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:var(--ink);font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .sbtn .e{display:block;font-size:20px;margin-bottom:3px}
+  .sbtn.SEEN.on{border-color:var(--seen);background:rgba(74,222,128,.12)}
+  .sbtn.BAILED.on{border-color:var(--bail);background:rgba(251,191,36,.12)}
+  .sbtn.WANT.on{border-color:var(--want);background:rgba(96,165,250,.12)}
+  .bailrow{display:none;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .bailrow.show{display:flex}
+  .bchip{padding:8px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
+  .bchip.on{border-color:var(--bail);color:var(--bail)}
+  .sheet textarea{width:100%;background:var(--card);border:2px solid var(--line);border-radius:14px;color:var(--ink);padding:12px 14px;font-size:15px;font-family:inherit;min-height:76px;resize:vertical;outline:none}
+  .sheet textarea:focus{border-color:var(--grape)}
+  .save{width:100%;margin-top:12px;padding:16px;border-radius:16px;border:0;background:var(--grape);color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit}
+  .del{width:100%;margin-top:8px;padding:12px;border-radius:14px;border:0;background:none;color:#F87171;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+
+  .tools{display:flex;gap:10px;justify-content:center;margin:22px 0 8px}
+  .tools button{background:none;border:0;color:var(--faint);font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline;font-family:inherit}
+  .loading{text-align:center;color:var(--faint);padding:16px;font-weight:700;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="berry">🫐</span> I <span class="mem">'MEMBER</span> MOVIES</div>
+    <div class="chips">
+      <div class="chip s"><b id="cSeen">0</b> seen</div>
+      <div class="chip b"><b id="cBail">0</b> bailed</div>
+      <div class="chip w"><b id="cWant">0</b> list</div>
+    </div>
+  </header>
+
+  <div id="viewHome">
+    <div class="searchbar"><input id="q" type="search" placeholder="'Member if I've seen…" autocomplete="off"></div>
+    <div id="results">
+      <div class="hint"><span class="bigberry">🫐</span><b>Type a movie title.</b><br>Your own log answers first — instantly — then the whole world's movies. Log what you've seen, what you bailed on, and what's on the list.</div>
+    </div>
+  </div>
+
+  <div id="viewMine" style="display:none">
+    <div class="filters">
+      <button class="fbtn on" data-f="ALL">All</button>
+      <button class="fbtn" data-f="SEEN">Seen</button>
+      <button class="fbtn" data-f="BAILED">Bailed</button>
+      <button class="fbtn" data-f="WANT">List</button>
+    </div>
+    <div id="mine" class="list"></div>
+    <div class="tools">
+      <button id="exportBtn">Export my movies</button>
+      <button id="importBtn">Import</button>
+      <input id="importFile" type="file" accept="application/json" style="display:none">
+    </div>
+  </div>
+</div>
+
+<nav><div class="in">
+  <button id="tabHome" class="on"><span class="ico">🔍</span>'Member?</button>
+  <button id="tabMine"><span class="ico">🎬</span>My Movies</button>
+</div></nav>
+
+<div class="sheetwrap" id="sheetwrap">
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet">
+    <div class="grab"></div>
+    <div class="shead">
+      <img id="shPoster" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='120'%3E%3Crect width='80' height='120' fill='%23341E42'/%3E%3C/svg%3E">
+      <div><div class="name" id="shName"></div><div class="yr" id="shYr"></div><div class="cur" id="shCur"></div></div>
+    </div>
+    <div class="btns">
+      <button class="sbtn SEEN" data-s="SEEN"><span class="e">✅</span>Seen it</button>
+      <button class="sbtn BAILED" data-s="BAILED"><span class="e">🏃</span>Bailed</button>
+      <button class="sbtn WANT" data-s="WANT"><span class="e">🍿</span>Wanna watch</button>
+    </div>
+    <div class="bailrow" id="bailrow">
+      <button class="bchip" data-b="15 min in">15 min in</button>
+      <button class="bchip" data-b="30 min in">30 min in</button>
+      <button class="bchip" data-b="halfway">halfway</button>
+      <button class="bchip" data-b="almost done">almost done</button>
+    </div>
+    <textarea id="shNote" placeholder="What'd you think? (this becomes your review)"></textarea>
+    <button class="save" id="shSave">Save</button>
+    <button class="del" id="shDel" style="display:none">Remove from my movies</button>
+  </div>
+</div>
+
+<script>
+const LS = "imember.movies.v1";
+const $ = s => document.querySelector(s);
+const db = { load(){ try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch(e){ return {}; } },
+             save(d){ localStorage.setItem(LS, JSON.stringify(d)); } };
+let movies = db.load();          // key -> {key,name,year,poster,status,note,bail,ts}
+let current = null;              // movie in the sheet
+let filter = "ALL";
+
+const keyOf = m => m.imdb || (m.name + "|" + (m.year||""));
+const esc = s => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="120"><rect width="80" height="120" fill="#341E42"/><text x="40" y="66" font-size="30" text-anchor="middle">🫐</text></svg>');
+
+function counts(){
+  const v = Object.values(movies);
+  $("#cSeen").textContent = v.filter(m=>m.status==="SEEN").length;
+  $("#cBail").textContent = v.filter(m=>m.status==="BAILED").length;
+  $("#cWant").textContent = v.filter(m=>m.status==="WANT").length;
+}
+
+/* ---------- search ---------- */
+let t = null, seq = 0;
+$("#q").addEventListener("input", e => {
+  clearTimeout(t);
+  const q = e.target.value.trim();
+  if (!q) { $("#results").innerHTML = ""; return; }
+  renderMineMatches(q);                     // instant, local
+  t = setTimeout(() => webSearch(q), 380);  // debounced, network
+});
+
+function mineMatches(q){
+  const n = q.toLowerCase();
+  return Object.values(movies).filter(m => m.name.toLowerCase().includes(n))
+    .sort((a,b) => b.ts - a.ts);
+}
+
+function verdictCard(m){
+  const label = {SEEN:"YOU'VE SEEN THIS", BAILED:"YOU BAILED" + (m.bail? " — " + esc(m.bail):""), WANT:"ON YOUR LIST"}[m.status];
+  return `<div class="verdict" data-k="${esc(m.key)}">
+    <img src="${m.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
+    <div class="t"><div class="name">${esc(m.name)}</div><div class="yr">${esc(m.year||"")}</div>
+    <span class="pill ${m.status}">${label}</span>
+    ${m.note? `<div class="note">“${esc(m.note)}”</div>`:""}</div></div>`;
+}
+
+function renderMineMatches(q){
+  const mine = mineMatches(q);
+  let html = "";
+  if (mine.length){
+    html += `<div class="secttl mine">🫐 You 'member…</div>` + mine.slice(0,4).map(verdictCard).join("");
+  }
+  html += `<div class="secttl">Everywhere else</div><div class="loading">Searching…</div>`;
+  $("#results").innerHTML = html;
+  bindVerdicts();
+}
+
+async function webSearch(q){
+  const my = ++seq;
+  let metas = [];
+  try {
+    const r = await fetch("https://v3-cinemeta.strem.io/catalog/movie/top/search=" + encodeURIComponent(q) + ".json");
+    metas = (await r.json()).metas || [];
+  } catch(e){ /* offline: local results already shown */ }
+  if (my !== seq) return;
+  const mine = mineMatches(q);
+  let html = "";
+  if (mine.length) html += `<div class="secttl mine">🫐 You 'member…</div>` + mine.slice(0,4).map(verdictCard).join("");
+  if (metas.length){
+    html += `<div class="secttl">Everywhere else</div><div class="grid">` + metas.slice(0,18).map(m => {
+      const k = keyOf({imdb:m.imdb_id, name:m.name, year:m.releaseInfo});
+      const logged = movies[k];
+      return `<div class="movie" data-m='${esc(JSON.stringify({imdb:m.imdb_id||"",name:m.name,year:(m.releaseInfo||"").slice(0,4),poster:m.poster||""}))}'>
+        ${logged? `<span class="tag ${logged.status}">${logged.status==="WANT"?"LIST":logged.status}</span>`:""}
+        <img loading="lazy" src="${m.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
+        <div class="cap"><div class="n">${esc(m.name)}</div><div class="y">${esc((m.releaseInfo||"").slice(0,4))}</div></div></div>`;
+    }).join("") + `</div>`;
+  } else if (!mine.length){
+    html += `<div class="hint">Nothing found for “${esc(q)}”. Try fewer words.</div>`;
+  }
+  $("#results").innerHTML = html;
+  bindVerdicts();
+  document.querySelectorAll(".movie").forEach(el =>
+    el.addEventListener("click", () => openSheet(JSON.parse(el.dataset.m))));
+}
+
+function bindVerdicts(){
+  document.querySelectorAll(".verdict").forEach(el =>
+    el.addEventListener("click", () => { const m = movies[el.dataset.k]; if (m) openSheet(m, true); }));
+}
+
+/* ---------- sheet ---------- */
+function openSheet(m, fromLog){
+  const k = fromLog ? m.key : keyOf(m);
+  const logged = movies[k];
+  current = { key:k, imdb:m.imdb||"", name:m.name, year:m.year||"", poster:m.poster||"",
+              status:(logged&&logged.status)||null, note:(logged&&logged.note)||"", bail:(logged&&logged.bail)||"" };
+  $("#shPoster").src = current.poster || PLACEHOLDER;
+  $("#shName").textContent = current.name;
+  $("#shYr").textContent = current.year;
+  $("#shCur").innerHTML = logged? `<span class="pill ${logged.status}">already logged</span>` : "";
+  $("#shNote").value = current.note;
+  document.querySelectorAll(".sbtn").forEach(b => b.classList.toggle("on", b.dataset.s===current.status));
+  document.querySelectorAll(".bchip").forEach(b => b.classList.toggle("on", b.dataset.b===current.bail));
+  $("#bailrow").classList.toggle("show", current.status==="BAILED");
+  $("#shDel").style.display = logged? "block":"none";
+  $("#sheetwrap").classList.add("open");
+}
+document.querySelectorAll(".sbtn").forEach(b => b.addEventListener("click", () => {
+  current.status = b.dataset.s;
+  document.querySelectorAll(".sbtn").forEach(x => x.classList.toggle("on", x===b));
+  $("#bailrow").classList.toggle("show", current.status==="BAILED");
+}));
+document.querySelectorAll(".bchip").forEach(b => b.addEventListener("click", () => {
+  current.bail = (current.bail===b.dataset.b)? "" : b.dataset.b;
+  document.querySelectorAll(".bchip").forEach(x => x.classList.toggle("on", x.dataset.b===current.bail));
+}));
+$("#shSave").addEventListener("click", () => {
+  if (!current.status) { alert("Pick one: seen it, bailed, or wanna watch."); return; }
+  movies[current.key] = { ...current, note: $("#shNote").value.trim(), ts: Date.now() };
+  db.save(movies); counts(); closeSheet();
+  const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); }
+  renderMine();
+});
+$("#shDel").addEventListener("click", () => {
+  delete movies[current.key]; db.save(movies); counts(); closeSheet(); renderMine();
+  const q = $("#q").value.trim(); if (q) webSearch(q);
+});
+const closeSheet = () => $("#sheetwrap").classList.remove("open");
+$("#scrim").addEventListener("click", closeSheet);
+
+/* ---------- my movies ---------- */
+function renderMine(){
+  const v = Object.values(movies).filter(m => filter==="ALL" || m.status===filter).sort((a,b)=>b.ts-a.ts);
+  $("#mine").innerHTML = v.length? v.map(m => `
+    <div class="row" data-k="${esc(m.key)}">
+      <img src="${m.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
+      <div class="t">
+        <div class="name">${esc(m.name)} <span class="yr">${esc(m.year||"")}</span></div>
+        <span class="pill ${m.status}">${m.status==="BAILED"&&m.bail? "BAILED — "+esc(m.bail) : (m.status==="WANT"?"ON THE LIST":m.status)}</span>
+        ${m.note? `<div class="note">“${esc(m.note)}”</div>`:""}
+        <div class="when">${new Date(m.ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
+      </div>
+    </div>`).join("")
+    : `<div class="hint"><span class="bigberry">🎬</span>Nothing here yet. Go 'member some movies.</div>`;
+  document.querySelectorAll("#mine .row").forEach(el =>
+    el.addEventListener("click", () => openSheet(movies[el.dataset.k], true)));
+}
+document.querySelectorAll(".fbtn").forEach(b => b.addEventListener("click", () => {
+  filter = b.dataset.f;
+  document.querySelectorAll(".fbtn").forEach(x => x.classList.toggle("on", x===b));
+  renderMine();
+}));
+
+/* ---------- tabs ---------- */
+$("#tabHome").addEventListener("click", () => switchTab(true));
+$("#tabMine").addEventListener("click", () => switchTab(false));
+function switchTab(home){
+  $("#viewHome").style.display = home? "block":"none";
+  $("#viewMine").style.display = home? "none":"block";
+  $("#tabHome").classList.toggle("on", home);
+  $("#tabMine").classList.toggle("on", !home);
+  if (!home) renderMine();
+}
+
+/* ---------- export / import ---------- */
+$("#exportBtn").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(movies,null,1)], {type:"application/json"}));
+  a.download = "imember-movies.json"; a.click();
+});
+$("#importBtn").addEventListener("click", () => $("#importFile").click());
+$("#importFile").addEventListener("change", async e => {
+  try {
+    const inc = JSON.parse(await e.target.files[0].text());
+    movies = { ...movies, ...inc }; db.save(movies); counts(); renderMine();
+    alert("Imported. You 'member everything again.");
+  } catch(err){ alert("That file didn't look right."); }
+});
+
+counts();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
