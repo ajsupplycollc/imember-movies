@@ -360,32 +360,71 @@ function pillOf(m){
   return {cls:m.status||"", label:m.status||""};
 }
 
-/* ---------- discover (empty-search browse feed) ---------- */
-const topCatalog = async type => {
+/* ---------- discover (infinite browse feed) ---------- */
+const topCatalog = async (type, skip) => {
   try {
-    const r = await fetch(`${CM}/catalog/${type}/top.json`);
-    return ((await r.json()).metas || []).slice(0, 21).map(m => ({
+    const path = skip ? `top/skip=${skip}` : "top";
+    const r = await fetch(`${CM}/catalog/${type}/${path}.json`);
+    return ((await r.json()).metas || []).map(m => ({
       imdb: m.imdb_id || "", name: m.name, year: (m.releaseInfo||"").slice(0,4),
       yearFull: m.releaseInfo || "", poster: m.poster || "", type,
     }));
   } catch(e){ return []; }
 };
+const feed = { movie: {items: [], skip: 0, done: false}, series: {items: [], skip: 0, done: false}, loading: false };
+async function loadMore(){
+  if (feed.loading) return;
+  feed.loading = true;
+  const wants = seg === "ALL" ? ["movie", "series"] : [seg];
+  await Promise.all(wants.map(async type => {
+    const f = feed[type];
+    if (f.done) return;
+    const page = await topCatalog(type, f.skip || undefined);
+    if (!page.length) { f.done = true; return; }
+    const seen = new Set(f.items.map(keyOf));
+    f.items.push(...page.filter(m => !seen.has(keyOf(m))));
+    f.skip += page.length;
+  }));
+  feed.loading = false;
+}
+function feedCells(){
+  if (seg !== "ALL") return feed[seg].items;
+  const a = feed.movie.items, b = feed.series.items, out = [];
+  const L = Math.max(a.length, b.length);
+  for (let i = 0; i < L; i++){ if (a[i]) out.push(a[i]); if (b[i]) out.push(b[i]); }
+  return out;
+}
+let feedObserver = null;
 async function discover(){
-  if (!discoverCache){
-    $("#results").innerHTML = `<div class="secttl">Popular right now</div><div class="grid">` +
+  if ($("#q").value.trim()) return;
+  const title = seg === "movie" ? "Popular movies" : seg === "series" ? "Popular shows" : "Popular right now";
+  if (!feedCells().length){
+    $("#results").innerHTML = `<div class="secttl">${title}</div><div class="grid">` +
       Array(6).fill('<div class="skel cell"></div>').join("") + `</div>`;
-    const [mov, ser] = await Promise.all([topCatalog("movie"), topCatalog("series")]);
-    discoverCache = {movie: mov, series: ser};
+    await loadMore();
+    if ($("#q").value.trim()) return;
   }
-  if ($("#q").value.trim()) return;   // user typed while loading
-  const dc = discoverCache;
-  let html = "";
-  if (seg !== "series" && dc.movie.length)
-    html += `<div class="secttl">Popular movies</div><div class="grid">` + dc.movie.slice(0, seg==="movie"?21:9).map(movieCell).join("") + `</div>`;
-  if (seg !== "movie" && dc.series.length)
-    html += `<div class="secttl">Popular shows</div><div class="grid">` + dc.series.slice(0, seg==="series"?21:9).map(movieCell).join("") + `</div>`;
-  $("#results").innerHTML = html || `<div class="hint"><span class="bigberry">🫐</span>Type a movie or show above.</div>`;
+  $("#results").innerHTML = `<div class="secttl">${title}</div><div class="grid" id="feedgrid">` +
+    feedCells().map(movieCell).join("") + `</div><div id="feedmore" style="height:60px"></div>`;
   bindCells();
+  if (feedObserver) feedObserver.disconnect();
+  feedObserver = new IntersectionObserver(async entries => {
+    if (!entries[0].isIntersecting || feed.loading) return;
+    if ($("#q").value.trim()) return;
+    const before = feedCells().length;
+    await loadMore();
+    const cells = feedCells();
+    if (cells.length > before){
+      const grid = $("#feedgrid");
+      if (!grid) return;
+      const frag = document.createElement("div");
+      frag.innerHTML = cells.slice(before).map(movieCell).join("");
+      while (frag.firstChild) grid.appendChild(frag.firstChild);
+      bindCells();
+    }
+  }, {rootMargin: "600px"});
+  const sentinel = $("#feedmore");
+  if (sentinel) feedObserver.observe(sentinel);
 }
 
 /* ---------- segment chips ---------- */
