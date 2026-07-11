@@ -433,12 +433,13 @@ async function checkNewEpisodes(){
         const known = new Set(Object.keys(rec.eps || {}));
         const fresh = vids.filter(v => !known.has(`${v.season}:${v.episode}`));
         const seasons = [...new Set(fresh.map(v => v.season))].sort((a,b)=>a-b);
-        newEpAlerts.push({rec, count: fresh.length,
+        newEpAlerts.push({rec, count: fresh.length, total: vids.length,
           what: seasons.length === 1 ? `Season ${seasons[0]} dropped — ${fresh.length} new episode${fresh.length>1?"s":""}` : `${fresh.length} new episodes across ${seasons.length} seasons`});
       }
     } catch(e){}
     await new Promise(res => setTimeout(res, 150));
   }
+  alertsLoadedAt = Date.now();
   if (newEpAlerts.length && !$("#q").value.trim()) discover();
 }
 function newEpStrip(){
@@ -449,6 +450,25 @@ function newEpStrip(){
       <div class="t"><div class="name">${esc(a.rec.name)}</div><div class="what">${esc(a.what)} — tap to catch up</div></div>
     </div>`).join("");
 }
+function refreshEpAlerts(){
+  if (!newEpAlerts || !newEpAlerts.length) return;
+  const before = newEpAlerts.length;
+  newEpAlerts = newEpAlerts.filter(a => {
+    const rec = movies[a.rec.key];
+    if (!rec) return false;                                  // removed from log
+    const checked = Object.keys(rec.eps || {}).length;
+    if (rec.status === "SEEN" && checked >= a.total) return false;   // fully caught up
+    if (rec.status === "SEEN" && checked < a.total && rec.ts >= alertsLoadedAt){
+      // user re-marked "seen it" without episode-checking: respect it, stop re-flagging this drop
+      rec.epTotal = a.total; db.save(movies);
+      return false;
+    }
+    return true;
+  });
+  if (newEpAlerts.length !== before && !$("#q").value.trim()) discover();
+}
+let alertsLoadedAt = 0;
+
 function bindNewEps(){
   document.querySelectorAll(".newep").forEach(el => el.addEventListener("click", () => {
     const a = newEpAlerts[Number(el.dataset.nei)];
@@ -615,6 +635,7 @@ function persistCurrent(){
 $("#shSave").addEventListener("click", () => {
   if (!current.status) { alert("Pick one: seen it, bailed, or wanna watch."); return; }
   persistCurrent(); dirty = false; closeSheet();
+  refreshEpAlerts();
   const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); } else discover();
   if (current.type === "movie") maybeFranchise(current);
 });
@@ -733,7 +754,8 @@ $("#epDone").addEventListener("click", () => {
   if (!current.status) current.status = "WATCHING";
   persistCurrent();
   $("#epwrap").classList.remove("open");
-  const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); }
+  refreshEpAlerts();
+  const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); } else discover();
 });
 $("#epscrim").addEventListener("click", () => $("#epDone").click());
 
@@ -995,7 +1017,7 @@ checkNewEpisodes();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", {updateViaCache: "none"});
 
 /* ---------- self-update on resume (iOS keeps the app alive in background) ---------- */
-const BUILD = "22";
+const BUILD = "23";
 async function checkForUpdate(){
   try {
     const r = await fetch("./version.json?ts=" + Date.now(), {cache: "no-store"});
