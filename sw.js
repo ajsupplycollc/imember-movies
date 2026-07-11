@@ -1,6 +1,6 @@
 // I 'Member Movies — offline shell. Your log is localStorage; search needs network.
 // Shell strategy: NETWORK-FIRST for pages (instant updates), cache fallback for offline.
-const CACHE = "imember-v14";
+const CACHE = "imember-v15";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
