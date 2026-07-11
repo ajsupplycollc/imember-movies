@@ -126,6 +126,7 @@
   nav button .ico{display:block;font-size:22px;margin-bottom:2px}
   nav button.on{color:var(--berry)}
 
+  body.locked{overflow:hidden;position:fixed;inset:0;width:100%}
   .sheetwrap{position:fixed;inset:0;z-index:20;display:none}
   .sheetwrap.open{display:block}
   .scrim{position:absolute;inset:0;background:rgba(0,0,0,.6)}
@@ -322,7 +323,7 @@ let discoverCache = null;
 let nfxCancel = false;
 
 const keyOf = m => m.imdb || (m.name + "|" + (m.year||""));
-const esc = s => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc = s => (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const norm = s => (s||"").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="120"><rect width="80" height="120" fill="#341E42"/><text x="40" y="66" font-size="30" text-anchor="middle">🫐</text></svg>');
 
@@ -891,6 +892,22 @@ function showToast(text, undoFn){
   if (undoFn) $("#toastUndo").addEventListener("click", () => { undoFn(); toastEl.classList.remove("show"); });
   toastTimer = setTimeout(() => toastEl.classList.remove("show"), undoFn? 5000 : 1800);
 }
+
+/* body scroll lock: watch sheet open/close */
+let lockScrollY = 0;
+const anySheetOpen = () => !!document.querySelector(".sheetwrap.open");
+new MutationObserver(() => {
+  const open = anySheetOpen();
+  if (open && !document.body.classList.contains("locked")){
+    lockScrollY = window.scrollY;
+    document.body.style.top = `-${lockScrollY}px`;
+    document.body.classList.add("locked");
+  } else if (!open && document.body.classList.contains("locked")){
+    document.body.classList.remove("locked");
+    document.body.style.top = "";
+    window.scrollTo(0, lockScrollY);
+  }
+}).observe(document.body, {attributes: true, subtree: true, attributeFilter: ["class"]});
 
 counts();
 discover();
