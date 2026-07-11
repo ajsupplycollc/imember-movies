@@ -144,6 +144,12 @@
   .sbtn.BAILED.on{border-color:var(--bail);background:rgba(251,191,36,.12)}
   .sbtn.WANT.on{border-color:var(--want);background:rgba(96,165,250,.12)}
   .epbtn{width:100%;padding:13px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:var(--watching);font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:12px}
+  .berries{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+  .berries .blabel{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-right:4px}
+  .berry{font-size:26px;cursor:pointer;filter:grayscale(1);opacity:.35;transition:filter .15s,opacity .15s,transform .1s;touch-action:manipulation}
+  .berry.on{filter:none;opacity:1}
+  .berry:active{transform:scale(1.2)}
+  .minirating{font-size:12px;letter-spacing:1px;margin-top:4px}
   .bailrow{display:none;gap:6px;margin-bottom:12px;flex-wrap:wrap}
   .bailrow.show{display:flex}
   .bchip{padding:8px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
@@ -295,6 +301,10 @@
       <button class="sbtn SEEN" data-s="SEEN"><span class="e">✅</span>Seen it</button>
       <button class="sbtn BAILED" data-s="BAILED"><span class="e">🏃</span>Bailed</button>
       <button class="sbtn WANT" data-s="WANT"><span class="e">🍿</span>Wanna watch</button>
+    </div>
+    <div class="berries" id="berries">
+      <span class="blabel">Rate it</span>
+      <span class="berry" data-r="1">🫐</span><span class="berry" data-r="2">🫐</span><span class="berry" data-r="3">🫐</span><span class="berry" data-r="4">🫐</span><span class="berry" data-r="5">🫐</span>
     </div>
     <div class="bailrow" id="bailrow">
       <button class="bchip" data-b="15 min in">15 min in</button>
@@ -467,6 +477,7 @@ function verdictCard(m){
     <img src="${m.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
     <div class="t"><div class="name">${esc(m.name)}</div><div class="yr">${esc(m.year||"")}${m.type==="series"?" · TV":""}</div>
     <span class="pill ${p.cls}">${esc(p.label)}</span>
+    ${m.rating? `<div class="minirating">${berryStr(m.rating)}</div>`:""}
     ${m.note? `<div class="note">“${esc(m.note)}”</div>`:""}</div></div>`;
 }
 
@@ -523,7 +534,8 @@ function openSheet(m, fromLog){
   current = { key:k, imdb:m.imdb||"", name:m.name, year:m.year||"", poster:m.poster||"",
               type:(logged&&logged.type)||m.type||"movie",
               status:(logged&&logged.status)||null, note:(logged&&logged.note)||"",
-              bail:(logged&&logged.bail)||"", eps:(logged&&logged.eps)||{}, epTotal:(logged&&logged.epTotal)||0 };
+              bail:(logged&&logged.bail)||"", rating:(logged&&logged.rating)||0,
+              eps:(logged&&logged.eps)||{}, epTotal:(logged&&logged.epTotal)||0 };
   $("#shPoster").src = current.poster || PLACEHOLDER;
   $("#shName").textContent = current.name;
   $("#shYr").textContent = current.year + (current.type==="series" ? " · TV series" : "");
@@ -533,6 +545,7 @@ function openSheet(m, fromLog){
   $("#shEps").style.display = (current.type==="series" && current.imdb) ? "block" : "none";
   document.querySelectorAll(".sbtn").forEach(b => b.classList.toggle("on", b.dataset.s===current.status));
   document.querySelectorAll(".bchip").forEach(b => b.classList.toggle("on", b.dataset.b===current.bail));
+  paintBerries(current.rating);
   $("#bailrow").classList.toggle("show", current.status==="BAILED");
   $("#shDel").style.display = logged? "block":"none";
   dirty = false;
@@ -570,6 +583,16 @@ $("#shDel").addEventListener("click", () => {
 });
 const closeSheet = () => $("#sheetwrap").classList.remove("open");
 $("#shNote").addEventListener("input", () => dirty = true);
+function paintBerries(r){
+  document.querySelectorAll(".berry").forEach(b => b.classList.toggle("on", Number(b.dataset.r) <= r));
+}
+document.querySelectorAll(".berry").forEach(b => b.addEventListener("click", () => {
+  const r = Number(b.dataset.r);
+  current.rating = (current.rating === r) ? 0 : r;   // tap the same berry to clear
+  dirty = true;
+  paintBerries(current.rating);
+}));
+const berryStr = r => r ? "🫐".repeat(r) : "";
 function dismissLogSheet(){
   // autosave on dismiss (Notes/Mail behavior) — only if the user actually changed something
   if (current && current.status && dirty){
@@ -736,6 +759,7 @@ function renderMine(){
       <div class="t">
         <div class="name">${esc(m.name)} <span class="yr">${esc(m.year||"")}${m.type==="series"?" · TV":""}</span></div>
         <span class="pill ${p.cls}">${esc(p.label)}</span>
+        ${m.rating? `<div class="minirating">${berryStr(m.rating)}</div>`:""}
         ${m.note? `<div class="note">“${esc(m.note)}”</div>`:""}
         <div class="when">${new Date(m.ts).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
       </div>
@@ -924,7 +948,7 @@ discover();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", {updateViaCache: "none"});
 
 /* ---------- self-update on resume (iOS keeps the app alive in background) ---------- */
-const BUILD = "18";
+const BUILD = "19";
 async function checkForUpdate(){
   try {
     const r = await fetch("./version.json?ts=" + Date.now(), {cache: "no-store"});
