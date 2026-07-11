@@ -678,8 +678,18 @@ async function maybeFranchise(m){
   const stem = stemOf(m.name);
   if (stem.length < 3) return;
   const results = await searchCatalog("movie", stem);
-  const sibs = results.filter(r =>
-    norm(r.name).startsWith(norm(stem)) && keyOf(r) !== m.key && !movies[keyOf(r)]).slice(0, 8);
+  // real sequels only: after the shared stem there must be a sequel-ish suffix
+  // (number / roman numeral / colon subtitle) — same-name remakes are NOT siblings.
+  const nstem = norm(stem);
+  const savedHadSuffix = norm(m.name) !== nstem;
+  const sibs = results.filter(r => {
+    if (keyOf(r) === m.key || movies[keyOf(r)]) return false;
+    const n = norm(r.name);
+    if (!n.startsWith(nstem)) return false;
+    const rest = r.name.slice(stem.length);
+    if (!n.slice(nstem.length).trim()) return savedHadSuffix;   // the original, when we logged a numbered one
+    return /^\s*[:\-–]|^\s+(\d|II|III|IV|V|VI|VII)/i.test(rest);
+  }).slice(0, 8);
   if (!sibs.length) return;
   $("#franlist").innerHTML = sibs.map(r => `
     <div class="fr" data-m='${esc(JSON.stringify(r))}'>
