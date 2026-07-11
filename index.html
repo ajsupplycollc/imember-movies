@@ -62,6 +62,9 @@
   .nfxsteps{color:var(--mut);font-size:14px;line-height:1.8;margin-bottom:14px}
   .nfxsteps b{color:var(--ink)}
 
+  .seg{display:flex;gap:6px;margin:0 0 4px}
+  .seg button{flex:1;padding:9px 0;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--mut);font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;touch-action:manipulation}
+  .seg button.on{border-color:var(--grape);color:var(--ink);background:var(--card2)}
   .hint{color:var(--faint);font-size:13px;text-align:center;padding:28px 20px;line-height:1.6}
   .hint b{color:var(--mut)}
   .bigberry{font-size:44px;display:block;margin-bottom:10px}
@@ -191,12 +194,22 @@
 
   <div id="viewHome">
     <div class="searchbar"><div class="inwrap"><input id="q" type="search" placeholder="'Member if I've seen…" autocomplete="off"><button class="sclear" id="qClear">✕</button></div></div>
+    <div class="seg">
+      <button class="on" data-seg="ALL">All</button>
+      <button data-seg="movie">Movies</button>
+      <button data-seg="series">TV</button>
+    </div>
     <div id="results">
       <div class="hint"><span class="bigberry">🫐</span><b>Type a movie or show.</b><br>Your own log answers first — instantly — then the whole world's catalog. Movies AND TV, down to the episode.</div>
     </div>
   </div>
 
   <div id="viewMine" style="display:none">
+    <div class="seg" style="margin-top:10px">
+      <button class="on" data-mseg="ALL">All</button>
+      <button data-mseg="movie">Movies</button>
+      <button data-mseg="series">TV</button>
+    </div>
     <div class="filters">
       <button class="fbtn on" data-f="ALL">All</button>
       <button class="fbtn" data-f="SEEN">Seen</button>
@@ -293,6 +306,9 @@ let movies = db.load();          // key -> {key,imdb,name,year,poster,type,statu
 let current = null;
 let dirty = false;
 let filter = "ALL";
+let seg = "ALL";
+let mineSeg = "ALL";
+let discoverCache = null;
 let nfxCancel = false;
 
 const keyOf = m => m.imdb || (m.name + "|" + (m.year||""));
@@ -334,12 +350,53 @@ function pillOf(m){
   return {cls:m.status||"", label:m.status||""};
 }
 
+/* ---------- discover (empty-search browse feed) ---------- */
+const topCatalog = async type => {
+  try {
+    const r = await fetch(`${CM}/catalog/${type}/top.json`);
+    return ((await r.json()).metas || []).slice(0, 21).map(m => ({
+      imdb: m.imdb_id || "", name: m.name, year: (m.releaseInfo||"").slice(0,4),
+      yearFull: m.releaseInfo || "", poster: m.poster || "", type,
+    }));
+  } catch(e){ return []; }
+};
+async function discover(){
+  if (!discoverCache){
+    $("#results").innerHTML = `<div class="secttl">Popular right now</div><div class="grid">` +
+      Array(6).fill('<div class="skel cell"></div>').join("") + `</div>`;
+    const [mov, ser] = await Promise.all([topCatalog("movie"), topCatalog("series")]);
+    discoverCache = {movie: mov, series: ser};
+  }
+  if ($("#q").value.trim()) return;   // user typed while loading
+  const dc = discoverCache;
+  let html = "";
+  if (seg !== "series" && dc.movie.length)
+    html += `<div class="secttl">Popular movies</div><div class="grid">` + dc.movie.slice(0, seg==="movie"?21:9).map(movieCell).join("") + `</div>`;
+  if (seg !== "movie" && dc.series.length)
+    html += `<div class="secttl">Popular shows</div><div class="grid">` + dc.series.slice(0, seg==="series"?21:9).map(movieCell).join("") + `</div>`;
+  $("#results").innerHTML = html || `<div class="hint"><span class="bigberry">🫐</span>Type a movie or show above.</div>`;
+  bindCells();
+}
+
+/* ---------- segment chips ---------- */
+document.querySelectorAll(".seg button[data-seg]").forEach(b => b.addEventListener("click", () => {
+  seg = b.dataset.seg;
+  document.querySelectorAll(".seg button[data-seg]").forEach(x => x.classList.toggle("on", x===b));
+  const q = $("#q").value.trim();
+  if (q) webSearch(q); else discover();
+}));
+document.querySelectorAll(".seg button[data-mseg]").forEach(b => b.addEventListener("click", () => {
+  mineSeg = b.dataset.mseg;
+  document.querySelectorAll(".seg button[data-mseg]").forEach(x => x.classList.toggle("on", x===b));
+  renderMine();
+}));
+
 /* ---------- search ---------- */
 let t = null, seq = 0;
 $("#q").addEventListener("input", e => {
   clearTimeout(t);
   const q = e.target.value.trim();
-  if (!q) { $("#results").innerHTML = ""; return; }
+  if (!q) { discover(); return; }
   renderMineMatches(q);
   t = setTimeout(() => webSearch(q), 380);
 });
@@ -378,7 +435,9 @@ function movieCell(m){
 
 async function webSearch(q){
   const my = ++seq;
-  const [mov, ser] = await Promise.all([searchCatalog("movie", q), searchCatalog("series", q)]);
+  const [mov, ser] = await Promise.all([
+    seg === "series" ? [] : searchCatalog("movie", q),
+    seg === "movie" ? [] : searchCatalog("series", q)]);
   if (my !== seq) return;
   // interleave: movies first, series woven in
   const merged = [];
@@ -441,7 +500,7 @@ function persistCurrent(){
 $("#shSave").addEventListener("click", () => {
   if (!current.status) { alert("Pick one: seen it, bailed, or wanna watch."); return; }
   persistCurrent(); dirty = false; closeSheet();
-  const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); }
+  const q = $("#q").value.trim(); if (q) { renderMineMatches(q); webSearch(q); } else discover();
   if (current.type === "movie") maybeFranchise(current);
 });
 $("#shDel").addEventListener("click", () => {
@@ -600,7 +659,10 @@ $("#franscrim").addEventListener("click", closeFran);
 
 /* ---------- my movies ---------- */
 function renderMine(){
-  const v = Object.values(movies).filter(m => filter==="ALL" || m.status===filter).sort((a,b)=>b.ts-a.ts);
+  const v = Object.values(movies)
+    .filter(m => filter==="ALL" || m.status===filter)
+    .filter(m => mineSeg==="ALL" || (m.type||"movie")===mineSeg)
+    .sort((a,b)=>b.ts-a.ts);
   $("#mine").innerHTML = v.length? v.map(m => {
     const p = pillOf(m);
     return `<div class="row" data-k="${esc(m.key)}">
@@ -720,7 +782,7 @@ function parseCSV(text){
 const qEl = $("#q"), qClear = $("#qClear");
 const syncClear = () => qClear.style.display = qEl.value ? "block" : "none";
 qEl.addEventListener("input", syncClear);
-qClear.addEventListener("click", () => { qEl.value = ""; $("#results").innerHTML = ""; syncClear(); qEl.focus(); });
+qClear.addEventListener("click", () => { qEl.value = ""; syncClear(); discover(); qEl.focus(); });
 
 /* ---------- drag-to-dismiss on every sheet ---------- */
 document.querySelectorAll(".sheetwrap").forEach(wrapEl => {
@@ -776,6 +838,7 @@ function showToast(text, undoFn){
 }
 
 counts();
+discover();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
