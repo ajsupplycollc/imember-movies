@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="I 'Member Movies">
+<meta name="apple-mobile-web-app-title" content="IMemberMovies">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1A0F21">
 <style>
@@ -995,7 +995,7 @@ checkNewEpisodes();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", {updateViaCache: "none"});
 
 /* ---------- self-update on resume (iOS keeps the app alive in background) ---------- */
-const BUILD = "21";
+const BUILD = "22";
 async function checkForUpdate(){
   try {
     const r = await fetch("./version.json?ts=" + Date.now(), {cache: "no-store"});

@@ -1,6 +1,6 @@
 {
   "name": "I 'Member Movies",
-  "short_name": "I 'Member Movies",
+  "short_name": "IMemberMovies",
   "description": "'Member if you've seen it. Track every movie — even the ones you bailed on.",
   "start_url": "./",
   "scope": "./",
