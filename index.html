@@ -387,12 +387,18 @@ async function loadMore(){
   }));
   feed.loading = false;
 }
+// hide fully-watched: movies logged SEEN; series only when the ENTIRE series is SEEN
+const fullyWatched = m => { const l = movies[keyOf(m)]; return !!l && l.status === "SEEN"; };
 function feedCells(){
-  if (seg !== "ALL") return feed[seg].items;
-  const a = feed.movie.items, b = feed.series.items, out = [];
-  const L = Math.max(a.length, b.length);
-  for (let i = 0; i < L; i++){ if (a[i]) out.push(a[i]); if (b[i]) out.push(b[i]); }
-  return out;
+  let cells;
+  if (seg !== "ALL") cells = feed[seg].items;
+  else {
+    const a = feed.movie.items, b = feed.series.items, out = [];
+    const L = Math.max(a.length, b.length);
+    for (let i = 0; i < L; i++){ if (a[i]) out.push(a[i]); if (b[i]) out.push(b[i]); }
+    cells = out;
+  }
+  return cells.filter(m => !fullyWatched(m));
 }
 let feedObserver = null;
 async function discover(){
