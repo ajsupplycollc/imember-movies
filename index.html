@@ -29,8 +29,18 @@
   .wrap{max-width:560px;margin:0 auto;padding:0 16px}
 
   header{padding:calc(14px + env(safe-area-inset-top)) 0 4px;display:flex;align-items:center;justify-content:space-between}
-  .logo{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .logo{font-size:22px;font-weight:800;letter-spacing:-.02em;position:relative}
   .logo .mem{color:var(--berry)}
+  .andtv{position:relative;display:inline-block;margin-left:2px}
+  .andtv .scribble{
+    font-family:"Bradley Hand","Noteworthy","Savoye LET","Segoe Print","Comic Sans MS",cursive;
+    font-weight:400;font-size:15px;color:#fff;opacity:.95;
+    display:inline-block;transform:rotate(-9deg) translateY(-9px);
+    letter-spacing:.02em;text-shadow:0 0 1px rgba(255,255,255,.35)}
+  .andtv .caret{
+    font-family:"Bradley Hand","Noteworthy","Segoe Print",cursive;
+    position:absolute;left:2px;bottom:-7px;font-size:13px;color:#fff;opacity:.85;
+    transform:rotate(-4deg)}
   .chips{display:flex;gap:6px}
   .chip{font-size:11px;font-weight:700;padding:5px 9px;border-radius:99px;background:var(--card);border:1px solid var(--line)}
   .chip b{font-size:12px}
@@ -184,7 +194,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo"><span>🫐</span> I <span class="mem">'MEMBER</span> MOVIES</div>
+    <div class="logo"><span>🫐</span> I <span class="mem">'MEMBER</span> MOVIES<span class="andtv"><span class="caret">^</span><span class="scribble">&amp; tv</span></span></div>
     <div class="chips">
       <div class="chip s"><b id="cSeen">0</b> seen</div>
       <div class="chip b"><b id="cBail">0</b> bailed</div>
