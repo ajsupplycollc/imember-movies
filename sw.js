@@ -1,6 +1,6 @@
 // I 'Member Movies — offline shell. Your log is localStorage; search needs network.
 // Shell strategy: NETWORK-FIRST for pages (instant updates), cache fallback for offline.
-const CACHE = "imember-v17";
+const CACHE = "imember-v18";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -16,9 +16,11 @@ self.addEventListener("fetch", e => {
   if (url.origin !== location.origin) return;   // cinemeta/posters: straight to network
   const isPage = e.request.mode === "navigate" || url.pathname.endsWith("index.html");
   if (isPage){
-    // network-first: newest app every open; cached copy only when offline
+    // network-first WITH cache:"no-cache" — GitHub Pages sends max-age=600, and the
+    // browser HTTP cache survives app kills; no-cache forces an etag revalidation
+    // (cheap 304 when unchanged, fresh HTML the moment a deploy lands).
     e.respondWith(
-      fetch(e.request).then(r => {
+      fetch(e.request, {cache: "no-cache"}).then(r => {
         const copy = r.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
         return r;

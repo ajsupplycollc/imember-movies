@@ -924,7 +924,7 @@ discover();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", {updateViaCache: "none"});
 
 /* ---------- self-update on resume (iOS keeps the app alive in background) ---------- */
-const BUILD = "17";
+const BUILD = "18";
 async function checkForUpdate(){
   try {
     const r = await fetch("./version.json?ts=" + Date.now(), {cache: "no-store"});
