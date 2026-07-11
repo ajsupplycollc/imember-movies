@@ -922,6 +922,18 @@ new MutationObserver(() => {
 counts();
 discover();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", {updateViaCache: "none"});
+
+/* ---------- self-update on resume (iOS keeps the app alive in background) ---------- */
+const BUILD = "17";
+async function checkForUpdate(){
+  try {
+    const r = await fetch("./version.json?ts=" + Date.now(), {cache: "no-store"});
+    const v = (await r.json()).v;
+    if (v && String(v) !== BUILD && !anySheetOpen() && !document.querySelector("#nfxstat.show")) location.reload();
+  } catch(e){}
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkForUpdate(); });
+setInterval(checkForUpdate, 90000);
 </script>
 </body>
 </html>
