@@ -82,6 +82,11 @@
   .secttl{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:14px 2px 8px}
   .secttl.mine{color:var(--berry)}
 
+  .newep{background:var(--card2);border:2px solid var(--watching);border-radius:var(--r);padding:12px 14px;display:flex;gap:12px;align-items:center;margin-bottom:10px;cursor:pointer}
+  .newep img{width:44px;height:66px;object-fit:cover;border-radius:8px;background:var(--card)}
+  .newep .t{flex:1;min-width:0}
+  .newep .name{font-weight:800;font-size:15px}
+  .newep .what{color:var(--watching);font-size:12.5px;font-weight:700;margin-top:3px}
   .verdict{background:var(--card2);border:2px solid var(--grape);border-radius:var(--r);padding:14px;display:flex;gap:12px;align-items:center;margin-bottom:10px}
   .verdict img{width:52px;height:78px;object-fit:cover;border-radius:10px;background:var(--card)}
   .verdict .t{flex:1;min-width:0}
@@ -411,6 +416,46 @@ function feedCells(){
   }
   return cells.filter(m => !fullyWatched(m));
 }
+/* ---------- new-season radar for finished/watching shows ---------- */
+let newEpAlerts = null;   // [{rec, fresh, unseen}]
+async function checkNewEpisodes(){
+  if (newEpAlerts !== null) return;    // once per app load
+  newEpAlerts = [];
+  const shows = Object.values(movies).filter(m => m.type === "series" && m.imdb &&
+    (m.status === "SEEN" || m.status === "WATCHING")).slice(0, 15);
+  for (const rec of shows){
+    try {
+      const r = await fetch(`${CM}/meta/series/${rec.imdb}.json`);
+      const vids = (((await r.json()).meta || {}).videos || []).filter(v => v.season > 0 && v.episode > 0);
+      const checked = Object.keys(rec.eps || {}).length;
+      if (rec.status === "SEEN" && vids.length > (rec.epTotal || checked)){
+        const known = new Set(Object.keys(rec.eps || {}));
+        const fresh = vids.filter(v => !known.has(`${v.season}:${v.episode}`));
+        const seasons = [...new Set(fresh.map(v => v.season))].sort((a,b)=>a-b);
+        newEpAlerts.push({rec, count: fresh.length,
+          what: seasons.length === 1 ? `Season ${seasons[0]} dropped — ${fresh.length} new episode${fresh.length>1?"s":""}` : `${fresh.length} new episodes across ${seasons.length} seasons`});
+      }
+    } catch(e){}
+    await new Promise(res => setTimeout(res, 150));
+  }
+  if (newEpAlerts.length && !$("#q").value.trim()) discover();
+}
+function newEpStrip(){
+  if (!newEpAlerts || !newEpAlerts.length) return "";
+  return `<div class="secttl mine">🫐 New since you finished</div>` + newEpAlerts.map((a, i) => `
+    <div class="newep" data-nei="${i}">
+      <img src="${a.rec.poster||PLACEHOLDER}" onerror="this.src='${PLACEHOLDER}'">
+      <div class="t"><div class="name">${esc(a.rec.name)}</div><div class="what">${esc(a.what)} — tap to catch up</div></div>
+    </div>`).join("");
+}
+function bindNewEps(){
+  document.querySelectorAll(".newep").forEach(el => el.addEventListener("click", () => {
+    const a = newEpAlerts[Number(el.dataset.nei)];
+    openSheet(a.rec, true);
+    setTimeout(() => $("#shEps").click(), 150);
+  }));
+}
+
 let feedObserver = null;
 async function discover(){
   if ($("#q").value.trim()) return;
@@ -421,9 +466,9 @@ async function discover(){
     await loadMore();
     if ($("#q").value.trim()) return;
   }
-  $("#results").innerHTML = `<div class="secttl">${title}</div><div class="grid" id="feedgrid">` +
+  $("#results").innerHTML = newEpStrip() + `<div class="secttl">${title}</div><div class="grid" id="feedgrid">` +
     feedCells().map(movieCell).join("") + `</div><div id="feedmore" style="height:60px"></div>`;
-  bindCells();
+  bindCells(); bindNewEps();
   if (feedObserver) feedObserver.disconnect();
   feedObserver = new IntersectionObserver(async entries => {
     if (!entries[0].isIntersecting || feed.loading) return;
@@ -945,10 +990,11 @@ new MutationObserver(() => {
 
 counts();
 discover();
+checkNewEpisodes();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", {updateViaCache: "none"});
 
 /* ---------- self-update on resume (iOS keeps the app alive in background) ---------- */
-const BUILD = "19";
+const BUILD = "20";
 async function checkForUpdate(){
   try {
     const r = await fetch("./version.json?ts=" + Date.now(), {cache: "no-store"});
